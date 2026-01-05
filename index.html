@@ -13,8 +13,9 @@
         #side-panel { margin-left: 20px; display: flex; flex-direction: column; gap: 15px; width: 220px; }
         .panel-box { background: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         
-        .score-box { font-size: 18px; font-weight: 700; color: #4a148c; margin-bottom: 10px; }
-        #partner-area { color: #d81b60; border-top: 2px dashed #f06292; padding-top: 10px; }
+        .score-box { font-size: 18px; font-weight: 700; color: #4a148c; margin-bottom: 5px; }
+        .extra-score { font-size: 14px; color: #6a1b9a; margin-bottom: 10px; border-bottom: 1px dashed #ce93d8; padding-bottom: 5px; }
+        #partner-area { color: #d81b60; border-top: 2px dashed #f06292; padding-top: 10px; margin-top: 10px; }
         
         #chat-area { display: flex; flex-direction: column; gap: 10px; }
         #msgInput { border: 2px solid #f06292; border-radius: 8px; padding: 8px; font-family: 'Quicksand'; outline: none; }
@@ -39,6 +40,8 @@
     <div id="side-panel">
         <div class="panel-box">
             <div class="score-box">👤 <span id="myNameLabel">-</span></div>
+            <div class="extra-score">🏆 En Yüksek: <span id="highScoreDisplay">0</span></div>
+            <div class="extra-score">⏪ Önceki: <span id="lastScoreDisplay">0</span></div>
             <div id="score" class="score-box">Skorum: 0</div>
             <div id="partner-area" class="score-box">💖 <span id="partnerNameLabel">Aşkım</span>: <span id="partnerScoreDisplay">0</span></div>
             <button id="restartBtn">Yeni Oyun (Enter) 🎮</button>
@@ -77,6 +80,14 @@
         let box = 28; 
         let snake, direction, score, speed, gameInterval, isGameOver;
 
+        // Hafızadan skorları çekme
+        function updateScoreBoard() {
+            const high = localStorage.getItem('highScore_' + myName) || 0;
+            const last = localStorage.getItem('lastScore_' + myName) || 0;
+            document.getElementById('highScoreDisplay').innerText = high;
+            document.getElementById('lastScoreDisplay').innerText = last;
+        }
+
         function initGame() {
             snake = [{x: Math.floor(canvas.width / 2 / box) * box, y: Math.floor(canvas.height / 2 / box) * box}];
             direction = null;
@@ -86,20 +97,25 @@
             document.getElementById('score').innerText = `Skorum: 0`;
             document.getElementById('restartBtn').style.display = 'none';
             document.getElementById('game-over-text').style.display = 'none';
+            updateScoreBoard();
             sendScore(0);
             if(gameInterval) clearInterval(gameInterval);
             gameInterval = setInterval(draw, speed);
         }
 
-        // --- TUŞ KONTROLLERİ ---
+        // Kendi gövdesine çarpma kontrolü
+        function checkCollision(head, body) {
+            for (let i = 0; i < body.length; i++) {
+                if (head.x === body[i].x && head.y === body[i].y) return true;
+            }
+            return false;
+        }
+
         document.addEventListener('keydown', e => {
-            // Eğer yandıysan Enter veya Space tuşu oyunu başlatır
             if (isGameOver && (e.key === 'Enter' || e.key === ' ')) {
                 initGame();
                 return;
             }
-
-            // Oyun esnasında yön tuşları
             if (isGameOver) return;
             if (e.key === 'ArrowUp' && direction !== 'down') direction = 'up';
             else if (e.key === 'ArrowDown' && direction !== 'up') direction = 'down';
@@ -174,6 +190,25 @@
             if (direction === 'left') snakeX -= box;
             if (direction === 'right') snakeX += box;
 
+            let newHead = {x: snakeX, y: snakeY};
+
+            // Yanma Koşulları: Duvarlar VEYA Kendi Gövdesi
+            if (direction && (snakeX < 0 || snakeX >= canvas.width || snakeY < 0 || snakeY >= canvas.height || checkCollision(newHead, snake))) {
+                isGameOver = true;
+                
+                // Skor Kayıt İşlemleri
+                localStorage.setItem('lastScore_' + myName, score);
+                const currentHigh = localStorage.getItem('highScore_' + myName) || 0;
+                if (score > currentHigh) {
+                    localStorage.setItem('highScore_' + myName, score);
+                }
+                
+                document.getElementById('restartBtn').style.display = 'block';
+                document.getElementById('game-over-text').style.display = 'block';
+                updateScoreBoard();
+                return;
+            }
+
             if (snakeX < food.x + box*1.8 && snakeX + box > food.x && snakeY < food.y + box*1.8 && snakeY + box > food.y) {
                 score++;
                 document.getElementById('score').innerText = `Skorum: ${score}`;
@@ -189,15 +224,7 @@
                 snake.pop();
             }
 
-            if (direction && (snakeX < 0 || snakeX >= canvas.width || snakeY < 0 || snakeY >= canvas.height)) {
-                isGameOver = true;
-                document.getElementById('restartBtn').style.display = 'block';
-                document.getElementById('game-over-text').style.display = 'block';
-                return;
-            }
-
             if(direction) {
-                let newHead = {x: snakeX, y: snakeY};
                 snake.unshift(newHead);
             }
         }
